@@ -10,6 +10,16 @@ from collections import defaultdict
 inverted_index = defaultdict(list)
 doc_id_map = {} # key = integer id, value  = file path
 
+class Posting:
+    def __init__(self, docid, tfidf):
+        self.docid = docid
+        self.tfidf = tfidf  # use freq counts for now
+
+    def __str__(self):
+        # return f'({self.docid}, {self.tfidf})'
+        return f'({self.docid}, {self.tfidf})'
+
+
 def computeWordFrequencies(tokens: list):
     freqs = {}
 
@@ -28,11 +38,8 @@ def _tokenize_file(file_path):
         for line in f:
             # extract json
             line_contents = json.loads(line)
-            # print(file_contents)
 
-            url = line_contents['url']
             content = line_contents['content']
-            encoding = line_contents['encoding']
 
             # beautiful soup the content
             soup = BeautifulSoup(content, features='xml')
@@ -48,16 +55,13 @@ def create_inverted_index():
     
     directory = "DEV"
     
-    # Iterate over files in directory
+    # Iterate over subfolders in directory
     for path, folders, _ in os.walk(directory):
         for folder_name in folders:
             for file in os.listdir(f"{path}/{folder_name}"):
                 file_path = f"{path}/{folder_name}/{file}"
                 print(file_path)
 
-                #file_type = ""
-                # if '.xml' in file_path, file_type = 'lxml'
-                # elif '
                 # create doc id for document
                 doc_id_map[doc_id_counter] = file_path
                 
@@ -70,15 +74,32 @@ def create_inverted_index():
 
                 # add to inverted index
                 for token, freq in freqs.items():
-                    inverted_index[token].append((doc_id_counter, freq))
+                    inverted_index[token].append(Posting(doc_id_counter, freq))
                 
                 doc_id_counter += 1
-
-                # TO-D0: write to disk, get total size (in KB) of your index on disk
                 
                 # break   # REMOVE - FOR TESTING
             # break   # REMOVE - FOR TESTING
         break
+
+    # write inverted_index to a file
+    with open('inverted_index.txt', 'w') as f:
+        for token, postings in inverted_index.items():
+            f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
+
+            # break # REMOVE - FOR TESTING
+    
+    
+    with open('milestone1_report.txt', 'w') as f:
+        # get number of documents from doc_id_counter
+        f.write(f"Number of documents: {doc_id_counter}\n")
+        
+        # get number of unique tokens from len(inverted_index.keys())
+        f.write(f"Number of unique tokens: {len(inverted_index.keys())}\n")
+
+        # get total size (in KB) of file using os.path.getsize()
+        size = os.path.getsize('inverted_index.txt') / 1000    
+        f.write(f"Size of the inverted index (in KB): {size}")
 
 if __name__ == '__main__':
     create_inverted_index()
