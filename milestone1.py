@@ -50,46 +50,78 @@ def _tokenize_file(file_path):
     return tokens
 
 def create_inverted_index():
+
+    # TO DO: PARTIAL INDEXING + MERGING
+    # choose a batch size
+    # for each batch of {batch size}, 
+    #   partial_index = defaultdict(list)
+    #   for each document in batch
+    #       tokenize the document and add it to the partial inverted index
+    #   sort partial index and write to disk
     # Assign directory
+
+    BATCH_SIZE = 50     # number of documents per partial inverted index
+
     doc_id_counter = 0
     
     directory = "DEV"
     
+    # create partial index and doc counter to create index of size [BATCH_SIZE]
+    partial_inv_index = defaultdict(list)
+    doc_counter = 0     
+    
     # Iterate over subfolders in directory
     for path, folders, _ in os.walk(directory):
         for folder_name in folders:
-            for file in os.listdir(f"{path}/{folder_name}"):
-                file_path = f"{path}/{folder_name}/{file}"
-                print(file_path)
+            while doc_counter < BATCH_SIZE:
+                for file in os.listdir(f"{path}/{folder_name}"):
+                
+                    file_path = f"{path}/{folder_name}/{file}"
+                    print(file_path)
 
-                # create doc id for document
-                doc_id_map[doc_id_counter] = file_path
-                
-                # tokenize file's HTML content
-                tokens = _tokenize_file(file_path)
-                # print(tokens)
-                
-                # compute word frequencies of tokens
-                freqs = computeWordFrequencies(tokens)
+                    # create doc id for document
+                    doc_id_map[doc_id_counter] = file_path
+                    
+                    # tokenize file's HTML content
+                    tokens = _tokenize_file(file_path)
+                    # print(tokens)
+                    
+                    # compute word frequencies of tokens
+                    freqs = computeWordFrequencies(tokens)
 
-                # add to inverted index
-                for token, freq in freqs.items():
-                    inverted_index[token].append(Posting(doc_id_counter, freq))
-                
-                doc_id_counter += 1
-                
-                # break   # REMOVE - FOR TESTING
-            # break   # REMOVE - FOR TESTING
-        break
+                    # add to partial inverted index
+                    for token, freq in freqs.items():
+                        partial_inv_index[token].append(Posting(doc_id_counter, freq))
+                    
+                    doc_id_counter += 1
 
-    # write inverted_index to a file
-    with open('inverted_index.txt', 'w') as f:
-        for token, postings in inverted_index.items():
+                    if doc_counter == BATCH_SIZE:
+                        break   # break to start next batch
+
+                    # if indexed the entire batch, write the partial index to disk and start the next batch
+                
+                if doc_counter == BATCH_SIZE:
+                    # write the partial index to disk, reset doc counter and continue going through files
+                    # write inverted_index to a file
+                    with open('inverted_index.txt', 'a') as f:
+                        for token, postings in partial_inv_index.items():
+                            f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
+                    
+                    # reset counter and index
+                    partial_inv_index = defaultdict(list)
+                    doc_counter = 0
+                    continue
+                        
+                break # when the for loop will not execute, the while loop will break to avoid an infinite loop
+           
+           # break   # REMOVE - FOR TESTING
+    
+    # write the last batch in the directory to the file
+    with open('inverted_index.txt', 'a') as f:
+        for token, postings in sorted(partial_inv_index.items()): # sorted the key to help when merging
             f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
 
-            # break # REMOVE - FOR TESTING
-    
-    
+
     with open('milestone1_report.txt', 'w') as f:
         # get number of documents from doc_id_counter
         f.write(f"Number of documents: {doc_id_counter}\n")
