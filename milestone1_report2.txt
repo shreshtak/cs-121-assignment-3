@@ -1,0 +1,3 @@
+Number of documents: 55393
+Number of unique tokens: 373436
+Size of the inverted index (in KB): 120871.905
