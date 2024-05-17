@@ -31,8 +31,8 @@ def _get_posting_list_intersection(token1_postings, token2_postings):
 def _get_doc_id_map_from_disk():
     with open(DOC_ID_FILE, 'r') as f:
         for line in f:
-            id, url = line.split(': ', maxsplit=1)
-            doc_id_map[int(id)] = eval(url.rstrip())
+            id, url = line.split(': ')
+            doc_id_map[int(id)] = url.rstrip()
 
 
 # Do any preprocessing to the query text (tokenizing, capitalization, stemming, etc)
@@ -74,7 +74,7 @@ def boolean_and_search(query_token_postings):
 
 def _print_results(urls):
     for i, url in enumerate(urls[:5]):
-        print(f"({i+1}): {url[0]}\n")
+        print(f"({i+1}): {url}\n")
 
 def handle_query(query):
     query_tokens = preprocess_query(query)
