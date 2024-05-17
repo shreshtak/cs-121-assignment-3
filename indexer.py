@@ -51,7 +51,8 @@ def _tokenize_file(file_path):
             content = line_contents['content']
 
             # beautiful soup the content
-            soup = BeautifulSoup(content, features='xml')
+            # soup = BeautifulSoup(content, features='xml')
+            soup = BeautifulSoup(content, 'html.parser')
 
             # tokenize the page content from soup
             tokens = word_tokenize(soup.get_text())
@@ -86,11 +87,12 @@ def create_inverted_index():
                 # print(tokens)
 
                 # create doc id for document
-                doc_id_map[doc_id_counter] = url
-                doc_id_counter += 1
+                # doc_id_map[doc_id_counter] = url
+                # doc_id_counter += 1
                 
                 # compute word frequencies of tokens
                 freqs = computeWordFrequencies(tokens)
+                doc_id_map[doc_id_counter] = (url, file_path, freqs)
 
                 # add to partial inverted index
                 for token, freq in freqs.items():
@@ -100,6 +102,7 @@ def create_inverted_index():
                 for token, freq in freqs.items():
                     inverted_index[token].append(Posting(doc_id_counter, freq))
 
+                doc_id_counter += 1
                 doc_batch_counter += 1
 
                 if doc_batch_counter == BATCH_SIZE:
@@ -121,22 +124,22 @@ def create_inverted_index():
                            
            # break   # REMOVE - FOR TESTING
            
-    # write main inverted index to disk - REMOVE LATER
-    with open(f'inverted_index.txt', 'w') as f:
-        for token, postings in sorted(inverted_index.items(), key=lambda x: x[0]):
-            f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
+    # # write main inverted index to disk - REMOVE LATER
+    # with open(f'inverted_index.txt', 'w') as f:
+    #     for token, postings in sorted(inverted_index.items(), key=lambda x: x[0]):
+    #         f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
 
-    # write results to file - REMOVE BEFORE SUBMITTING
-    with open('milestone1_report2.txt', 'w') as f:
-        # get number of documents from doc_id_counter
-        f.write(f"Number of documents: {doc_id_counter}\n")
+    # # write results to file - REMOVE BEFORE SUBMITTING
+    # with open('milestone1_report2.txt', 'w') as f:
+    #     # get number of documents from doc_id_counter
+    #     f.write(f"Number of documents: {doc_id_counter}\n")
         
-        # get number of unique tokens from len(inverted_index.keys())
-        f.write(f"Number of unique tokens: {len(inverted_index.keys())}\n")
+    #     # get number of unique tokens from len(inverted_index.keys())
+    #     f.write(f"Number of unique tokens: {len(inverted_index.keys())}\n")
 
-        # get total size (in KB) of file using os.path.getsize()
-        size = os.path.getsize('inverted_index.txt') / 1000    
-        f.write(f"Size of the inverted index (in KB): {size}")
+    #     # get total size (in KB) of file using os.path.getsize()
+    #     size = os.path.getsize('inverted_index.txt') / 1000    
+    #     f.write(f"Size of the inverted index (in KB): {size}")
     
     
 def write_doc_id_map_to_disk():

@@ -7,6 +7,7 @@ DOC_ID_FILE = 'document_id_map.txt'
 doc_id_map = {}
 
 def _get_posting_list_intersection(token1_postings, token2_postings):
+    
     t1_index = 0
     t2_index = 0
     intersection = []
@@ -30,8 +31,8 @@ def _get_posting_list_intersection(token1_postings, token2_postings):
 def _get_doc_id_map_from_disk():
     with open(DOC_ID_FILE, 'r') as f:
         for line in f:
-            id, url = line.split(': ')
-            doc_id_map[int(id)] = url.rstrip()
+            id, url = line.split(': ', maxsplit=1)
+            doc_id_map[int(id)] = eval(url.rstrip())
 
 
 # Do any preprocessing to the query text (tokenizing, capitalization, stemming, etc)
@@ -40,12 +41,11 @@ def preprocess_query(query):
     # use porter stemming on tokens
     ps = PorterStemmer()
     query_tokens = [ps.stem(token) for token in query_tokens]
-
     return query_tokens
 
 # Get and return the merged postings list for each of the query tokens
 def merge_indexes(query_tokens):
-    query_token_postings = defaultdict(list)
+    query_token_postings = defaultdict(list)    # {query_: [postings]}
 
     # get postings lists for each token ()
     #   merge postings lists from the partial indexes into one large inverted index for token t
@@ -58,7 +58,7 @@ def merge_indexes(query_tokens):
                     postings_list_as_tuples = eval(postings)
                     postings_list_as_posting = [Posting(x[0], x[1]) for x in postings_list_as_tuples]
                     query_token_postings[token].extend(postings_list_as_posting)
-
+    
     return query_token_postings
 
 
@@ -67,17 +67,14 @@ def boolean_and_search(query_token_postings):
     query_token_postings = list(query_token_postings.values())
     running_intersection: list[Posting] = query_token_postings[0]
 
-    for posting in query_token_postings[1:]:
-        running_intersection = _get_posting_list_intersection(running_intersection, posting)
-
-    print([posting.docid for posting in running_intersection])
-    print(list(doc_id_map.items())[:10])
+    for postings_list in query_token_postings[1:]:
+        running_intersection = _get_posting_list_intersection(running_intersection, postings_list)
     
     return [posting.docid for posting in running_intersection]  
 
 def _print_results(urls):
     for i, url in enumerate(urls[:5]):
-        print(f"({i+1}): {url}\n")
+        print(f"({i+1}): {url[0]}\n")
 
 def handle_query(query):
     query_tokens = preprocess_query(query)
