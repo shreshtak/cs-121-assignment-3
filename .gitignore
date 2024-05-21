@@ -3,3 +3,4 @@ inverted_index.txt
 indexes/
 document_id_map.txt
 .DS_Store
+__pycache__
