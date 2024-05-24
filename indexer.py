@@ -4,11 +4,14 @@ import json
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from collections import defaultdict
+from string import ascii_lowercase
+import heapq
 
 BATCH_SIZE = 2000     # number of documents per partial inverted index
 DATA_DIR = "DEV"
-INDEXES_DIR = "indexes"
-
+PARTIAL_INDEXES_DIR = "partial_indexes"
+INVERTED_INDEXES_DIR = "inverted_indexes"
+WEIGHTED_TAGS = ['h1', 'h2', 'h3', 'b', 'strong']
 
 doc_id_map = {} # key = integer id, value  = file path
 
@@ -47,13 +50,15 @@ def _tokenize_file(file_path):
             # beautiful soup the content
             soup = BeautifulSoup(content, 'html.parser')
 
+            weighted_tag_content = ' '.join([tag.string for tag in soup.findAll(WEIGHTED_TAGS, string=True)])
+
             # tokenize the page content from soup
-            tokens = word_tokenize(soup.get_text())
+            tokens = word_tokenize(soup.get_text(' ') + ' ' + weighted_tag_content)
         
     return url, tokens
 
 
-def create_inverted_index():
+def create_partial_indexes():
 
     # TO DO:
     # - COSINE SIMILARITY METHOD FOR TF-IDF
@@ -99,9 +104,9 @@ def create_inverted_index():
                     # reset doc counter and continue going through files
                     
                     # write partial_inverted_index to a file
-                    os.makedirs(INDEXES_DIR, exist_ok=True)   # create indexes folder if it doesn't exist
+                    os.makedirs(PARTIAL_INDEXES_DIR, exist_ok=True)   # create partial indexes folder if it doesn't exist
 
-                    with open(f'{INDEXES_DIR}/inverted_index{num_batches}.txt', 'w') as f:
+                    with open(f'{PARTIAL_INDEXES_DIR}/partial_index{num_batches}.txt', 'w') as f:
                         for token, postings in sorted(partial_inv_index.items(), key=lambda x: x[0]):
                             f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
                     
@@ -113,9 +118,104 @@ def write_doc_id_map_to_disk():
     with open(f'document_id_map.txt', 'w') as f:
         for doc_id, path in doc_id_map.items():
             f.write(f'{doc_id}: {path}\n')
+
+# Get and return the merged postings list for each of the query tokens
+def merge_indexes():
+    inverted_index_files = {}
+    alnum_keys = list(ascii_lowercase) + [str(i) for i in range(10)]
+
+    partial_index_files = []
+    num_partial_index_files = 0
+
+    partial_index_lines = {}    # to store the ((token, i), posting list) pairs to be merged
+    priority_queue = []
+    global priority_queue_length
+    priority_queue_length = 0
+
+    def get_full_sorted_posting_list_of_next_token_and_write_to_disk():
+        global priority_queue_length
+
+        # get first (token, i) from priority queue
+        same_token = [heapq.heappop(priority_queue)]       # stores the (token, i) pairings from the priority queue
+        priority_queue_length -= 1
+
+        current_token = same_token[0][0]
+        print(f'current token is "{current_token}"')
+        # continue popping (token, i) pairs from priority queue while tokens are the same
+        while True:
+            if priority_queue_length == 0 or priority_queue[0][0] != current_token:
+                break
             
+            elem = heapq.heappop(priority_queue)
+            priority_queue_length -= 1
+
+            same_token.append(elem)
+        
+        # for all the docs that contain the token, pop the entries from partial_index_lines and merge the posting lists together
+        full_postings_list = []
+        for token in same_token:
+            full_postings_list.extend(partial_index_lines.pop(token))
+
+        # if token doesn't start with alnum character, don't bother sorting
+        # we do this after popping from priority_queue and partial_index_lines so that they don't build up
+        if current_token[0].lower() not in alnum_keys:
+            return
+        
+        # sort the full postings list
+        full_postings_list.sort()
+        
+        # store token and its merged list in appropriate alnum inverted index file
+        file = inverted_index_files[current_token[0]]
+        file.write(f"{current_token}: {full_postings_list}\n")
+        print(f'Writing "{token}" to {file.name}')   
+
+        # END OF HELPER FUNCTION
+    
+    # open all the inverted index files and store them in a dictionary with alnum char as the key
+    os.makedirs(INVERTED_INDEXES_DIR, exist_ok=True)   # create inverted indexes folder if it doesn't exist
+
+    for alnum in alnum_keys:
+        inverted_index_files[alnum] = open(f"{INVERTED_INDEXES_DIR}/{alnum}.txt", 'w')
+    
+    # open all the partial index files and store them in an array
+    for partial_index in os.listdir(PARTIAL_INDEXES_DIR):
+        partial_index_files.append(open(f'{PARTIAL_INDEXES_DIR}/{partial_index}', 'r'))
+        num_partial_index_files += 1
+
+    # execute loop while there are still partial index files to read
+    while True:
+        non_empty_line_read = False
+        for i, partial_index_file in enumerate(partial_index_files):
+            # read line and separate into token and posting list
+            line = partial_index_file.readline()
+            
+            if line:
+                non_empty_line_read = True
+                line = line.split(': ')
+                token = line[0]
+
+                heapq.heappush(priority_queue, (token, i))
+                priority_queue_length += 1
+
+                #eval the postings list and put it in partial_index_lines with (token, i) as key
+                partial_index_lines[(token,i)] = eval(line[1].strip())
+
+        if not non_empty_line_read:
+            # all partial index files are done reading
+            break
+
+        # continue if priority_queue is empty
+        if priority_queue_length < 1:
+            continue
+       
+        get_full_sorted_posting_list_of_next_token_and_write_to_disk()
+
+    # process any remaining tokens in priority_queue
+    while priority_queue_length > 0:
+        get_full_sorted_posting_list_of_next_token_and_write_to_disk()
+
 
 if __name__ == '__main__':
-    create_inverted_index()
-    write_doc_id_map_to_disk()
-
+    # create_partial_indexes()
+    # write_doc_id_map_to_disk()
+    merge_indexes()

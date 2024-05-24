@@ -43,24 +43,6 @@ def preprocess_query(query):
     query_tokens = [ps.stem(token) for token in query_tokens]
     return query_tokens
 
-# Get and return the merged postings list for each of the query tokens
-def merge_indexes(query_tokens):
-    query_token_postings = defaultdict(list)    # {query_: [postings]}
-
-    # get postings lists for each token ()
-    #   merge postings lists from the partial indexes into one large inverted index for token t
-    for file in os.listdir(INDEXES_DIR):
-        with open(f'{INDEXES_DIR}/{file}', 'r') as f:
-            for line in f:
-                token, postings = line.split(': ')
-
-                if token in query_tokens:
-                    postings_list_as_tuples = eval(postings)
-                    postings_list_as_posting = [Posting(x[0], x[1]) for x in postings_list_as_tuples]
-                    query_token_postings[token].extend(postings_list_as_posting)
-    
-    return query_token_postings
-
 
 # Perform a boolean AND search on the merged token lists (i.e. find intersection of doc IDs)
 def boolean_and_search(query_token_postings):
