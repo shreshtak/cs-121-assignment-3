@@ -19,18 +19,20 @@ INDEXER
 - [DONE] project writeup pg 2: Important text: text in bold (b, strong), in headings (h1, h2, h3), and
 in titles should be treated as more important than the in other places. Verify which are the relevant
 HTML tags to select the important words.
-- project writeup pg 4: Your indexer must off load the inverted index hash map from main memory to a 
+- [DONE] project writeup pg 4: Your indexer must off load the inverted index hash map from main memory to a 
 partial index on disk at least 3 times during index construction; those partial indexes should be merged in the end.
     - do we have to merge the entirety of the indices??? yes
-- lec 18 slide 27: split inverted index into alphabet ranges
+- [DONE] lec 18 slide 27: split inverted index into alphabet ranges
 - lec 20+21+22: tf-idf scoring with cosine similarity (lec 21 slide 33, slide 56)
+- [DONE] when to filter out non-alnum tokens: currently done in merge_indexes(), but what if we filtered them out in
+create_partial_indexes() before adding them to partial index?
 
 
 
 
 SEARCHER
-- lec 17 slide 32: query optimization: process merged posting lists for each term in ascending order of length
-- lec 18 slide 5: timer to time query times (must be under 300ms)
+- [DONE] lec 17 slide 32: query optimization: process merged posting lists for each term in ascending order of length
+- [DONE] lec 18 slide 5: timer to time query times (must be under 300ms)
 - lec 18 slide 27: look into what this means: The search component needs to keep files open all the time. Note: the files 
 are open, but not in memory!
 - rank the results based on tf-dif and cosine similarity
@@ -92,3 +94,13 @@ while num_partial_index_files > 0:
 
 if merged_lists_count > 0:
     write whatever is left in merged lists to inverted_index_files
+
+
+good queries:
+    cristina lopes (69 ms)
+    machine learning (132 ms)
+    acm (46 ms)
+
+bad queries:
+    a computer (368 ms)
+    master of software engineering (520 ms)

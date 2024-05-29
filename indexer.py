@@ -12,6 +12,7 @@ DATA_DIR = "DEV"
 PARTIAL_INDEXES_DIR = "partial_indexes"
 INVERTED_INDEXES_DIR = "inverted_indexes"
 WEIGHTED_TAGS = ['h1', 'h2', 'h3', 'b', 'strong']
+ALNUM_KEYS= list(ascii_lowercase) + [str(i) for i in range(10)]
 
 doc_id_map = {} # key = integer id, value  = file path
 
@@ -92,7 +93,8 @@ def create_partial_indexes():
 
                 # add to partial inverted index
                 for token, freq in freqs.items():
-                    partial_inv_index[token].append(Posting(doc_id_counter, freq))
+                    if token[0] in ALNUM_KEYS:
+                        partial_inv_index[token].append(Posting(doc_id_counter, freq))
 
                 doc_id_counter += 1
                 doc_batch_counter += 1
@@ -122,7 +124,6 @@ def write_doc_id_map_to_disk():
 # Get and return the merged postings list for each of the query tokens
 def merge_indexes():
     inverted_index_files = {}
-    alnum_keys = list(ascii_lowercase) + [str(i) for i in range(10)]
 
     partial_index_files = []
     num_partial_index_files = 0
@@ -156,10 +157,10 @@ def merge_indexes():
         for token in same_token:
             full_postings_list.extend(partial_index_lines.pop(token))
 
-        # if token doesn't start with alnum character, don't bother sorting
-        # we do this after popping from priority_queue and partial_index_lines so that they don't build up
-        if current_token[0].lower() not in alnum_keys:
-            return
+        # # if token doesn't start with alnum character, don't bother sorting
+        # # we do this after popping from priority_queue and partial_index_lines so that they don't build up
+        # if current_token[0].lower() not in ALNUM_KEYS:
+        #     return
         
         # sort the full postings list
         full_postings_list.sort()
@@ -174,7 +175,7 @@ def merge_indexes():
     # open all the inverted index files and store them in a dictionary with alnum char as the key
     os.makedirs(INVERTED_INDEXES_DIR, exist_ok=True)   # create inverted indexes folder if it doesn't exist
 
-    for alnum in alnum_keys:
+    for alnum in ALNUM_KEYS:
         inverted_index_files[alnum] = open(f"{INVERTED_INDEXES_DIR}/{alnum}.txt", 'w')
     
     # open all the partial index files and store them in an array
@@ -216,6 +217,6 @@ def merge_indexes():
 
 
 if __name__ == '__main__':
-    # create_partial_indexes()
-    # write_doc_id_map_to_disk()
+    create_partial_indexes()
+    write_doc_id_map_to_disk()
     merge_indexes()
