@@ -6,6 +6,7 @@ from nltk.stem import PorterStemmer
 from collections import defaultdict
 from string import ascii_lowercase
 import heapq
+from simhash import Simhash, SimhashIndex
 
 BATCH_SIZE = 2000     # number of documents per partial inverted index
 DATA_DIR = "DEV"
@@ -15,14 +16,16 @@ WEIGHTED_TAGS = ['h1', 'h2', 'h3', 'b', 'strong']
 ALNUM_KEYS= list(ascii_lowercase) + [str(i) for i in range(10)]
 
 doc_id_map = {} # key = integer id, value  = file path
+simhash_index = SimhashIndex([], k=1)
 
 class Posting:
-    def __init__(self, docid, tfidf):
+    def __init__(self, docid, tf, tfidf=None):
         self.docid = docid
-        self.tfidf = tfidf  # use freq counts for now
+        self.tf = tf  # use freq counts for now
+        self.tfidf = tfidf
 
     def __str__(self):
-        return f'({self.docid}, {self.tfidf})'  # posting tuple when eval-ed: (doc_id, tf_idf)
+        return f'({self.docid}, {self.tf}, {self.tfidf})'  # posting tuple when eval-ed: (doc_id, tf, tfidf)
 
 # returns dictionary {token: frequency}
 def computeWordFrequencies(tokens: list):
@@ -84,6 +87,13 @@ def create_partial_indexes():
                 # tokenize file's HTML content
                 url, tokens = _tokenize_file(file_path)
                 tokens = [ps.stem(token) for token in tokens]
+
+                # checks for near duplicates by simhashing the file's tokens
+                simhash = Simhash(tokens)
+                near_duplicates = simhash_index.get_near_dups(simhash) # finds existing pages that are near duplicates, returns count
+                if (near_duplicates > 0): # if the duplicate count is greater than 0, don't proceed
+                    continue
+                simhash_index.append(tokens, simhash) # else add it to simhash_index
 
                 # create doc id for document
                 doc_id_map[doc_id_counter] = url

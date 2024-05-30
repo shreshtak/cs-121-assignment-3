@@ -104,3 +104,15 @@ good queries:
 bad queries:
     a computer (368 ms)
     master of software engineering (520 ms)
+
+terms: [a,b,c]
+docs: [x,y,z]
+
+  x y z
+a 0 0 0
+b 0 0 0
+c 0 0 0
+
+a: (x, 2), (y, 1)
+b: (z, 1)
+c: (x, 1), (z, 1)
