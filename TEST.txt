@@ -1,26 +1,37 @@
 Bad queries:
 
-1. cristina lopes
-2. machine learning
-3. 
-4. master of software engineering
-5. donald bren school of information and computer science
-6. 
-7.
-8.
-9.
-10.
+1. master of software engineering: Slow query processing time
+2. donald bren school of information and computer science: Slow query processing time
+3. ics student organizations: Irrelevant results
+4. cs 121: Irrelevant results
+5. ics undergraduate student affairs office: Slow query processing time
+6. ics 46 rock and roll stops traffic: Slow query processing time
+7. hack at uci: Irrelevant results
+8. If you’re interested in learning more about food sustainability, check out the events for UCI’s Earth Week 2018.: Slow query processing time
+9. is open to people of all: Slow query processing time
+10. wics: Irrelevant results
 
 
 Good queries:
 
 11. acm
-12.
-13.
-14.
-15.
-16.
-17.
-18.
-19.
-20.
+12. machine learning
+13. cristina lopes
+14. richard e pattis
+15. alberto krone martins
+16. connected learning lab
+17. dijkstra shortest path algorithm
+18. senior spotlight
+19. intersection health
+20. operating systems
+
+We improved the relevance of results by implementing ranked retrieval using the lnc.ltc scheme for 
+tf-idf/cosine similarity scoring with normalization. We also broke ties between cosine similarity scores
+with the sum of the query term frequencies in each document. 
+
+We improved the query processing time by constructing our inverted index as separate files based on the starting 
+character (alphanumeric only; a-z, 0-9) of tokens. At query time, we would only read from the inverted index 
+files for the starting characters of the query tokens. We also calculated document tf-idf scores at indexing time 
+instead of at query time, and we implemented champion lists to reduce the number of documents searched and cosine 
+scores calculated at query time. Additionally, we used simhash at indexing time to get rid of near-duplicate pages, 
+in turn reducing the number of pages to index and search through.

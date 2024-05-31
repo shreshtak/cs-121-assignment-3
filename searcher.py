@@ -1,4 +1,4 @@
-from indexer import Posting, computeWordFrequencies, INVERTED_INDEXES_DIR, CHAMPION_LISTS_DIR
+from indexer import Posting, computeWordFrequencies, INVERTED_INDEXES_DIR, CHAMPION_LISTS_DIR, ALNUM_KEYS
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
@@ -50,7 +50,7 @@ def _preprocess_query(query):
     query_tokens = word_tokenize(query)
     # use porter stemming on tokens
     ps = PorterStemmer()
-    query_tokens = [ps.stem(token) for token in query_tokens]
+    query_tokens = [ps.stem(token) for token in query_tokens if token[0] in ALNUM_KEYS]
 
     # filter out stopwords only if query without stopwords is greater than at least half of the original query
     filtered_tokens = [token for token in query_tokens if token not in STOPWORDS]
