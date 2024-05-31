@@ -3,8 +3,8 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 import time
 import numpy as np
-import math
 from collections import defaultdict
+import math
 
 DOC_ID_FILE = 'document_id_map.txt'
 INVERTED_INDEXES_DIR = "inverted_indexes"
@@ -12,6 +12,7 @@ NUM_RESULTS = 5
 
 total_doc_count = 0
 doc_id_map = {}
+dfs = {}
 
 def _get_posting_list_intersection(token1_postings, token2_postings):
     
@@ -57,22 +58,25 @@ def _get_merged_posting_lists(query_tokens):
     # remember to convert from tuple to Posting
     # return dictionary where key = token, val = Posting list
 
-    merged_posting_lists = defaultdict(list)
+    merged_posting_lists = defaultdict(dict)
 
     for token in query_tokens:
         with open(f"{INVERTED_INDEXES_DIR}/{token[0]}.txt") as f:
             for line in f:
+                # example line: token: [df, [postings]]
                 line = line.split(": ")
                 if line[0] == token:
-                    merged_posting_lists[token] = [Posting(*p) for p in eval(line[1])]
-       
+                    data = eval(line[1])
+                    dfs[token] = data[0]
+                    postings_list = data[1]
+                    merged_posting_lists[token] = {p.docid: p for p in [Posting(*posting) for posting in postings_list]}
     # print("_get_merged_posting_lists")
     # for token, posting_list in merged_posting_lists.items():
     #     print(f'{token}: {[str(posting) for posting in posting_list]}')
 
     return merged_posting_lists
 
-def _calculate_tf_idf(tf, df):
+def _calculate_ltc_tf_idf(tf, df, total_doc_count):
     # tf-idf = (1+log(tf)) x lsog(N/df)
     # N: total number of documents in the corpus
     # tf: term frequency of term t in document d
@@ -80,20 +84,16 @@ def _calculate_tf_idf(tf, df):
     
     return (1 + math.log(tf)) * math.log(total_doc_count/(1+df))
 
-def _compute_query_and_doc_tfidfs(query_tokens, merged_posting_lists):
+def _compute_query_tfidfs(query_tokens, merged_posting_lists):
     # for each merged postings list, get the df for the token.
-    # update the tf-idf for each Posting and compute the tf-idf for each token in the query.
+    # compute the tf-idf for each token in the query.
     # returns a dictionary of tf-idf values for the query (key = token, val = tfidf)
     
     query_token_freqs = computeWordFrequencies(query_tokens)
     query_tfidfs = {}
     
-    for token, postings in merged_posting_lists.items():
-        df = len(postings)
-        for p in postings:
-            p.tfidf = _calculate_tf_idf(p.tf, df)
-
-        query_tfidfs[token] = _calculate_tf_idf(query_token_freqs[token], df)
+    for token in merged_posting_lists.keys():
+        query_tfidfs[token] = _calculate_ltc_tf_idf(query_token_freqs[token], dfs[token], total_doc_count)
 
     # print("_compute_query_and_doc_tfidfs")
     # for token, posting_list in merged_posting_lists.items():
@@ -114,7 +114,7 @@ def _construct_normalized_query_and_doc_vectors(unique_terms, unique_doc_ids, me
 
     for i, term in enumerate(unique_terms):
         row = dict.fromkeys(unique_doc_ids, 0)
-        for posting in merged_posting_lists[term]:
+        for posting in merged_posting_lists[term].values():
             row[posting.docid] = posting.tfidf
         
         # transform term_vector from dictionary (key = docid, val = tfidf) to array of tfidf vals in ascending order of docid.
@@ -139,41 +139,65 @@ def _construct_normalized_query_and_doc_vectors(unique_terms, unique_doc_ids, me
     doc_norms[doc_norms == 0] = 1  # avoid division by zero
     query_norm = query_norm if query_norm != 0 else 1   # avoid division by zero
 
-    # norm_doc_vectors = doc_vectors / doc_norms
-    # norm_query_vector = query_vector / query_norm
-    norm_doc_vectors = doc_vectors
-    norm_query_vector = query_vector
+    norm_doc_vectors = doc_vectors / doc_norms
+    norm_query_vector = query_vector / query_norm
 
     # print('NORMALIZED')
     # for i, doc_id in enumerate(unique_doc_ids):
     #     print(f'{doc_id}: {norm_doc_vectors[:,i]}')
 
-
     return (norm_query_vector, norm_doc_vectors)
 
 def _calculate_cosine_similarities(merged_posting_lists, query_tfidfs):  
     # Create axes for query vector and document vector matrix
-    unique_terms = list(merged_posting_lists.keys())  # determines the order of the rows in query vector and doc vector matrix
-    # unique_doc_ids = set()
-
-    # for posting_list in merged_posting_lists.values():
-    #     for posting in posting_list:
-    #         unique_doc_ids.add(posting.docid)
-
-    # unique_doc_ids = sorted(unique_doc_ids) # unique_doc_ids is now a list of all unique docids in ascending order of docid
-    unique_doc_ids = sorted({posting.docid for postings in merged_posting_lists.values() for posting in postings})
-
+    unique_terms = list(merged_posting_lists.keys())  # determines the order of the rows in query vector and doc vector matrix -> [merged_posting_lists tokens]
+    unique_doc_ids = sorted({docid for v in merged_posting_lists.values() for docid in v.keys()})
     query_vector, doc_vectors = _construct_normalized_query_and_doc_vectors(unique_terms, unique_doc_ids, merged_posting_lists, query_tfidfs)
 
-    # Compute cosine scores for all query and doc vector pairs
-    cos_scores = {}
+    # compute cosine scores for all query and doc vector pairs
+    cos_scores = defaultdict(list) # create reversed dictionary that stores {cos_score: [doc_ids]}
     for i, docid in enumerate(unique_doc_ids):
-        cos_scores[docid] = np.dot(query_vector, doc_vectors[:, i])
-
+        cos_scores[np.dot(query_vector, doc_vectors[:, i])].append(docid)
+        
     # print('_calculate_cosine_similarities')
     # print(cos_scores)
     return cos_scores
 
+def _sort_by_desc_tf(docid_list, merged_postings_list):
+    # return the doc_id list by order of decreasing total tf
+    
+    total_tfs = defaultdict()     # {docid: avg_tf}
+    for docid in docid_list: 
+        total = 0
+        # iterate through postings dict for each token in MPL
+        for postings_dict in merged_postings_list.values():
+            try:
+                p = postings_dict[docid]
+                total += p.tf
+            except:
+                pass
+        total_tfs[docid] = total
+    
+    return [docid for docid, _ in sorted(total_tfs.items(), key=lambda x: x[1], reverse=True)]
+
+def _get_top_results(cos_scores, merged_posting_lists):
+    # return top results (doc i)
+    top_results = []
+    remaining_results = NUM_RESULTS
+    for _, docid_list in sorted(cos_scores.items(), key=lambda x: x[0], reverse=True):
+        sorted_docid_list = _sort_by_desc_tf(docid_list, merged_posting_lists)
+        num_results = len(sorted_docid_list)
+        
+        if remaining_results >= num_results:
+            top_results.extend(sorted_docid_list)
+            remaining_results -= num_results
+        else:
+            top_results.extend(sorted_docid_list[:remaining_results])
+            remaining_results -= remaining_results
+        
+        if remaining_results == 0:
+            return top_results
+        
 # Perform a boolean AND search on the merged token lists (i.e. find intersection of doc IDs)
 def _boolean_and_search(query_token_postings):
     query_token_postings = sorted(query_token_postings.values(), key=lambda x: len(x))
@@ -184,21 +208,15 @@ def _boolean_and_search(query_token_postings):
 
     return [posting.docid for posting in running_intersection]  
 
-
 def _handle_query(query):
     query_tokens = _preprocess_query(query)
-    merged_posting_lists = _get_merged_posting_lists(query_tokens)
-    # print(merged_posting_lists)
-    query_tfidfs = _compute_query_and_doc_tfidfs(query_tokens, merged_posting_lists)
+    merged_posting_lists = _get_merged_posting_lists(query_tokens)  # {token: {docid: Posting}}
+    query_tfidfs = _compute_query_tfidfs(query_tokens, merged_posting_lists)
+
+    # cos_scores: {score: [doc_ids]}
     cos_scores = _calculate_cosine_similarities(merged_posting_lists, query_tfidfs)
-
-    # extract top NUM_RESULTS docids from cos_scores
-    # top_results = [docid for docid, _ in sorted(cos_scores.items(), key=lambda x: x[1])[:NUM_RESULTS]]
-    # print('_handle_query')
-    # print(sorted(cos_scores.items(), key=lambda x: x[1], reverse=True))
-    top_results = [docid for docid, _ in sorted(cos_scores.items(), key=lambda x: x[1], reverse=True)[:NUM_RESULTS]]
-
-
+    top_results = _get_top_results(cos_scores, merged_posting_lists)
+    
     # BOOL SEARCH: REMOVE WHEN DONE WITH RANKED RETRIEVAL
     # top_results = _boolean_and_search(merged_posting_lists)
     
@@ -214,21 +232,33 @@ def _print_results(urls):
         print(f"({i+1}): {url}\n")
     
 
-def run_search_engine():
+def run_local_search_engine():
     _get_doc_id_map_from_disk()
 
     while True:
         query = input("Enter query (q: quit): ")
-        # timer start here
-        start = time.time()
+        
         if query == "q":
             return
         else:
+            start = time.time()
             urls = _handle_query(query)
-            # end timer here
             end = time.time()
             print(f"Query processing time: {(end-start)*1000} ms\n")
             _print_results(urls)
 
+
+def run_web_search_engine(query_request):
+    if len(doc_id_map.items()) == 0:
+        _get_doc_id_map_from_disk()
+
+    start = time.time()
+    urls = _handle_query(query_request)
+    end = time.time()
+    total_time = f"{(end-start)*1000} ms\n"
+    # print(f"Query processing time: {(end-start)*1000} ms\n")
+    # _print_results(urls)
+    return (urls, total_time)
+
 if __name__ == "__main__":
-    run_search_engine()
+    run_local_search_engine()

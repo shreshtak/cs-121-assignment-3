@@ -24,12 +24,18 @@
         <h2>Your Results</h2>
         {% if results %}
         <div>
-            <!-- Apply style to center the number value of the ol -->
             <ol>
                 {% for item in results %}
                 <li> {{item}} </li>
                 {% endfor %}
             </ol>
+        </div>
+        {% endif %}
+
+        <h2>Processing Time</h2>
+        {% if run_time %}
+        <div>
+            <p>{{ run_time }}</p>
         </div>
         {% endif %}
     </div>

@@ -7,6 +7,9 @@ from collections import defaultdict
 from string import ascii_lowercase
 import heapq
 from simhash import Simhash, SimhashIndex
+import math
+import shutil
+
 
 BATCH_SIZE = 2000     # number of documents per partial inverted index
 DATA_DIR = "DEV"
@@ -25,7 +28,7 @@ class Posting:
         self.tfidf = tfidf
 
     def __str__(self):
-        return f'({self.docid}, {self.tf}, {self.tfidf})'  # posting tuple when eval-ed: (doc_id, tf, tfidf)
+        return f'[{self.docid}, {self.tf}, {self.tfidf}]'  # posting array when eval-ed: [doc_id, tf, tfidf]
 
 # returns dictionary {token: frequency}
 def computeWordFrequencies(tokens: list):
@@ -63,19 +66,22 @@ def _tokenize_file(file_path):
 
 
 def create_partial_indexes():
-
-    # TO DO:
-    # - COSINE SIMILARITY METHOD FOR TF-IDF
-
     doc_id_counter = 0
     
     # create partial index and doc counter to create index of size [BATCH_SIZE]
     # INVERTED INDEX STRUCTURE: {string: [postings]}
     partial_inv_index = defaultdict(list)
     doc_batch_counter = 0
-    num_batches = 0     
+    num_batches = 0    
+    
+    # delete partial indexes directory if it exists for fresh start
+    if os.path.exists(PARTIAL_INDEXES_DIR):
+        shutil.rmtree(PARTIAL_INDEXES_DIR)
+    
+    os.makedirs(PARTIAL_INDEXES_DIR, exist_ok=True)   # create partial indexes folder
     
     ps = PorterStemmer()
+
     # Iterate over subfolders in directory
     for path, folders, _ in os.walk(DATA_DIR):
         for folder_name in folders:
@@ -91,9 +97,9 @@ def create_partial_indexes():
                 # checks for near duplicates by simhashing the file's tokens
                 simhash = Simhash(tokens)
                 near_duplicates = simhash_index.get_near_dups(simhash) # finds existing pages that are near duplicates, returns count
-                if (near_duplicates > 0): # if the duplicate count is greater than 0, don't proceed
+                if (len(near_duplicates) > 0): # if the near duplicate count is greater than 0, don't proceed
                     continue
-                simhash_index.append(tokens, simhash) # else add it to simhash_index
+                simhash_index.add(tokens, simhash) # else add it to simhash_index
 
                 # create doc id for document
                 doc_id_map[doc_id_counter] = url
@@ -116,20 +122,27 @@ def create_partial_indexes():
                     # reset doc counter and continue going through files
                     
                     # write partial_inverted_index to a file
-                    os.makedirs(PARTIAL_INDEXES_DIR, exist_ok=True)   # create partial indexes folder if it doesn't exist
-
                     with open(f'{PARTIAL_INDEXES_DIR}/partial_index{num_batches}.txt', 'w') as f:
                         for token, postings in sorted(partial_inv_index.items(), key=lambda x: x[0]):
                             f.write(f'{token}: {[eval(str(posting)) for posting in postings]}\n')
                     
                     # reset counter and index
                     partial_inv_index = defaultdict(list)
-                    doc_batch_counter = 0    
+                    doc_batch_counter = 0  
        
 def write_doc_id_map_to_disk():
     with open(f'document_id_map.txt', 'w') as f:
         for doc_id, path in doc_id_map.items():
             f.write(f'{doc_id}: {path}\n')
+
+
+def _calculate_lnc_tf_idf(tf):
+    # tf-idf = (1+log(tf)) x 1
+    # N: total number of documents in the corpus
+    # tf: term frequency of term t in document d
+    # df: number of documents that contain term t
+    
+    return 1 + math.log(tf)
 
 # Get and return the merged postings list for each of the query tokens
 def merge_indexes():
@@ -172,12 +185,16 @@ def merge_indexes():
         # if current_token[0].lower() not in ALNUM_KEYS:
         #     return
         
+        # calculate and store tfidf values for each posting
+        for posting in full_postings_list:
+            posting[2] = _calculate_lnc_tf_idf(posting[1])
+
         # sort the full postings list
         full_postings_list.sort()
         
-        # store token and its merged list in appropriate alnum inverted index file
+        # store token, its df, and its merged list in appropriate alnum inverted index file
         file = inverted_index_files[current_token[0]]
-        file.write(f"{current_token}: {full_postings_list}\n")
+        file.write(f"{current_token}: {[len(full_postings_list), full_postings_list]}\n")
         print(f'Writing "{token}" to {file.name}')   
 
         # END OF HELPER FUNCTION
@@ -227,6 +244,6 @@ def merge_indexes():
 
 
 if __name__ == '__main__':
-    create_partial_indexes()
-    write_doc_id_map_to_disk()
+    # create_partial_indexes()
+    # write_doc_id_map_to_disk()
     merge_indexes()

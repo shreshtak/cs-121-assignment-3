@@ -23,7 +23,7 @@ HTML tags to select the important words.
 partial index on disk at least 3 times during index construction; those partial indexes should be merged in the end.
     - do we have to merge the entirety of the indices??? yes
 - [DONE] lec 18 slide 27: split inverted index into alphabet ranges
-- lec 20+21+22: tf-idf scoring with cosine similarity (lec 21 slide 33, slide 56)
+- [DONE] lec 20+21+22: tf-idf scoring with cosine similarity (lec 21 slide 33, slide 56)
 - [DONE] when to filter out non-alnum tokens: currently done in merge_indexes(), but what if we filtered them out in
 create_partial_indexes() before adding them to partial index?
 
@@ -35,18 +35,18 @@ SEARCHER
 - [DONE] lec 18 slide 5: timer to time query times (must be under 300ms)
 - lec 18 slide 27: look into what this means: The search component needs to keep files open all the time. Note: the files 
 are open, but not in memory!
-- rank the results based on tf-dif and cosine similarity
+- [DONE] rank the results based on tf-dif and cosine similarity
 
 
 
 
 EXTRA CREDIT
-- Detect and eliminate duplicate pages. (1 pt for exact, 2 pts for near)
+- [DONE] Detect and eliminate duplicate pages. (1 pt for exact, 2 pts for near)
 - Add HITS and Page Rank to ranking. (1.5 pts HITS, 2.5 for PR)
 - Implement 2-gram and 3-gram indexing and use it in retrieval. (1 pt)
 - Enhance the index with word positions and use them for retrieval. (2 pts)
 - Index anchor words for the target pages. (1 pt).
-- Implement a Web or local GUI interface instead of using the console. (1 pt for the local GUI, 2 pts for a web GUI)
+- [DONE] Implement a Web or local GUI interface instead of using the console. (1 pt for the local GUI, 2 pts for a web GUI)
     - flask (easier according to ed) or streamlit
 - Implement the summarization of the resulting pages using the OpenAI API (or a local model using LangChain)
 and show the short summaries in your web GUI (note: you need a web GUI for this bonus point!). (2 pts)
