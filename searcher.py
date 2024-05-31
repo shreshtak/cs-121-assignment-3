@@ -220,6 +220,15 @@ def _handle_query(query):
 
     # cos_scores: {score: [doc_ids]}
     cos_scores = _calculate_cosine_similarities(merged_posting_lists, query_tfidfs)
+
+    # comment out for timing queries, uncomment for getting result set count
+    # num_matches = 0
+    # for score, docids in cos_scores.items():
+    #     if score > 0:
+    #         num_matches += len(docids)
+    
+    # print(f'number of matches: {num_matches}')
+
     top_results = _get_top_results(cos_scores, merged_posting_lists)
     
     # BOOL SEARCH: REMOVE WHEN DONE WITH RANKED RETRIEVAL
