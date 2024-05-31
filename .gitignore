@@ -5,3 +5,4 @@ document_id_map.txt
 .DS_Store
 __pycache__
 inverted_indexes/
+champion_lists/

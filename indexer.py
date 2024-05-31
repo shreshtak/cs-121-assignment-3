@@ -15,8 +15,10 @@ BATCH_SIZE = 2000     # number of documents per partial inverted index
 DATA_DIR = "DEV"
 PARTIAL_INDEXES_DIR = "partial_indexes"
 INVERTED_INDEXES_DIR = "inverted_indexes"
+CHAMPION_LISTS_DIR = "champion_lists"
 WEIGHTED_TAGS = ['h1', 'h2', 'h3', 'b', 'strong']
 ALNUM_KEYS= list(ascii_lowercase) + [str(i) for i in range(10)]
+CHAMPION_LIST_LENGTH = 1300
 
 doc_id_map = {} # key = integer id, value  = file path
 simhash_index = SimhashIndex([], k=1)
@@ -147,6 +149,7 @@ def _calculate_lnc_tf_idf(tf):
 # Get and return the merged postings list for each of the query tokens
 def merge_indexes():
     inverted_index_files = {}
+    champion_list_files = {}
 
     partial_index_files = []
     num_partial_index_files = 0
@@ -189,21 +192,32 @@ def merge_indexes():
         for posting in full_postings_list:
             posting[2] = _calculate_lnc_tf_idf(posting[1])
 
-        # sort the full postings list
+        # sort the full postings list (ascending element-wise)
         full_postings_list.sort()
         
-        # store token, its df, and its merged list in appropriate alnum inverted index file
-        file = inverted_index_files[current_token[0]]
-        file.write(f"{current_token}: {[len(full_postings_list), full_postings_list]}\n")
-        print(f'Writing "{token}" to {file.name}')   
+        # construct champion list (get docs with CHAMPION_LIST_LENGTH highest tfidf scores)
+        descending_tfidf = sorted(full_postings_list, key=lambda posting: posting[2], reverse=True)
+        champion_list = descending_tfidf if len(descending_tfidf) < CHAMPION_LIST_LENGTH else descending_tfidf[:CHAMPION_LIST_LENGTH]
+
+        # store token, its df, and its merged list in appropriate alnum inverted index and champion list files
+        df = len(full_postings_list)
+        first_letter = current_token[0]
+        inv_index_file = inverted_index_files[first_letter]
+        champ_list_file = champion_list_files[first_letter]
+
+        inv_index_file.write(f"{current_token}: {[df, full_postings_list]}\n")
+        champ_list_file.write(f"{current_token}: {[df, champion_list]}\n")
+        print(f'Writing "{token}" to {inv_index_file.name}')   
 
         # END OF HELPER FUNCTION
     
-    # open all the inverted index files and store them in a dictionary with alnum char as the key
+    # open all the inverted index and champion list files and store them in a dictionary with alnum char as the key
     os.makedirs(INVERTED_INDEXES_DIR, exist_ok=True)   # create inverted indexes folder if it doesn't exist
+    os.makedirs(CHAMPION_LISTS_DIR, exist_ok=True)   # create champion list folder if it doesn't exist
 
     for alnum in ALNUM_KEYS:
         inverted_index_files[alnum] = open(f"{INVERTED_INDEXES_DIR}/{alnum}.txt", 'w')
+        champion_list_files[alnum] = open(f"{CHAMPION_LISTS_DIR}/{alnum}.txt", 'w')
     
     # open all the partial index files and store them in an array
     for partial_index in os.listdir(PARTIAL_INDEXES_DIR):
@@ -241,6 +255,21 @@ def merge_indexes():
     # process any remaining tokens in priority_queue
     while priority_queue_length > 0:
         get_full_sorted_posting_list_of_next_token_and_write_to_disk()
+
+
+    # close all open files
+
+    # inverted index files
+    for inv_index_file in inverted_index_files.values():
+        inv_index_file.close()
+
+    # champion list files
+    for champion_list_file in champion_list_files.values():
+        champion_list_file.close()
+
+    # partial index files
+    for partial_index_file in partial_index_files:
+        partial_index_file.close()
 
 
 if __name__ == '__main__':

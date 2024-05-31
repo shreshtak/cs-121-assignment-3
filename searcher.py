@@ -1,15 +1,15 @@
-from indexer import Posting, computeWordFrequencies
+from indexer import Posting, computeWordFrequencies, INVERTED_INDEXES_DIR, CHAMPION_LISTS_DIR
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
+from nltk.corpus import stopwords
 import time
 import numpy as np
 from collections import defaultdict
 import math
 
 DOC_ID_FILE = 'document_id_map.txt'
-INVERTED_INDEXES_DIR = "inverted_indexes"
 NUM_RESULTS = 5
-
+STOPWORDS = set(stopwords.words('english'))
 total_doc_count = 0
 doc_id_map = {}
 dfs = {}
@@ -51,7 +51,11 @@ def _preprocess_query(query):
     # use porter stemming on tokens
     ps = PorterStemmer()
     query_tokens = [ps.stem(token) for token in query_tokens]
-    return query_tokens
+
+    # filter out stopwords only if query without stopwords is greater than at least half of the original query
+    filtered_tokens = [token for token in query_tokens if token not in STOPWORDS]
+
+    return filtered_tokens if len(filtered_tokens) >= (len(query_tokens)/2) else query_tokens
 
 def _get_merged_posting_lists(query_tokens):
     # for each query token, get merged posting list from alphabetic inv index
@@ -61,7 +65,7 @@ def _get_merged_posting_lists(query_tokens):
     merged_posting_lists = defaultdict(dict)
 
     for token in query_tokens:
-        with open(f"{INVERTED_INDEXES_DIR}/{token[0]}.txt") as f:
+        with open(f"{CHAMPION_LISTS_DIR}/{token[0]}.txt") as f:
             for line in f:
                 # example line: token: [df, [postings]]
                 line = line.split(": ")
@@ -70,6 +74,7 @@ def _get_merged_posting_lists(query_tokens):
                     dfs[token] = data[0]
                     postings_list = data[1]
                     merged_posting_lists[token] = {p.docid: p for p in [Posting(*posting) for posting in postings_list]}
+                    # print(f'{token} merged list length: {len(merged_posting_lists[token].keys())}')
     # print("_get_merged_posting_lists")
     # for token, posting_list in merged_posting_lists.items():
     #     print(f'{token}: {[str(posting) for posting in posting_list]}')
