@@ -23,7 +23,7 @@ How to Run Web GUI Search Engine:
 1. Run this command to install flask:
     'pip3 install flask' or 'pip install flask'
 2. Run the following command to start the web GUI:
-    'export FLASK_DEBUG = 1 && python3 -m flask run'
+    'export FLASK_DEBUG=1 && python3 -m flask run'
 3. The GUI will be hosted on your computer's local host, for example 'http://127.0.0.1:5000'. 
    Your local host will be linked in the terminal, open it in your browser. 
 4. Type your query into the input box and click 'Submit', the search engine results will be returned below
