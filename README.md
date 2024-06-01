@@ -1,4 +1,7 @@
 # cs-121-assignment-3
+OIH 14021174
+RGGUO 38627512
+SHRESHK 64486304
 Assignment 3 for CS 121
 
 Make sure the following resources are installed using pip/pip3: bs4, nltk, simhash, numpy, flask
